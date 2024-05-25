@@ -1,30 +1,21 @@
 import scrapy
-from exchange_rates.items import ExchangeRateItem
-import re
-import datetime
+from exchange_rates.items import CryptoItem
 
 class TemplateSpider(scrapy.Spider):
     name = 'crypto_spider'
 
     def __init__(self, *args, **kwargs):
         super(TemplateSpider, self).__init__(*args, **kwargs)
-        
-        # Load cryptos from text file
-        with open('cryptos.txt') as f:
-            cryptos = f.read().splitlines()
 
-        # start_urls = ["https://www.forbes.com/advisor/money-transfer/currency-converter/cad-btc/"]
-        start_urls = []
+        start_urls = ["https://www.coingecko.com"]
+        # alt_start_url = "https://www.coinbase.com/en-gb/explore?page=1"
 
-        # Generate the start URLs
-        for i in range(len(cryptos)):
-            for j in range(len(cryptos)):
-                if i != j:
-                    # start_url = f"https://wise.com/in/currency-converter/{countries[i]}-to-{countries[j]}-rate?"
-                    start_url = f"https://www.forbes.com/advisor/money-transfer/currency-converter/{cryptos[i]}-{cryptos[j]}/"
-                    start_urls.append(start_url)
+        for i in range(2,145):
+            start_url = f"https://www.coingecko.com/?page={i}"
+            start_urls.append(start_url)
 
         self.start_urls = start_urls
+        # self.alt_start_url = alt_start_url
 
     custom_settings = {
         'DOWNLOAD_DELAY': 0.25,
@@ -41,80 +32,35 @@ class TemplateSpider(scrapy.Spider):
     def parse(self, response):
         # print(response.request.meta.get('proxy'))
         if response.status == 200:
-            exchange_rate_raw = response.css('div.hero-template_content h2 strong::text').get()
-            market_time_raw = response.css('div.hero-template_content h2 time::text').get()
+            table = response.css('table tbody').get()
+            rows = scrapy.Selector(text=table).css('tbody tr')
 
-            pattern = r'\d+\.\d{2}'
-            match = re.search(pattern, exchange_rate_raw)
-            exchange_rate = match.group()
+            for row in rows:
+                item = CryptoItem()
+                item['rank'] = row.css('td:nth-child(2)::text').get().strip()
+                item['name'] = row.css('td:nth-child(3) div div:nth-child(1)::text').get().strip()
+                item['code'] = row.css('td:nth-child(3) div div.tw-text-xs::text').get().strip()
+                item['price'] = row.css('td:nth-child(5) span::text').get().strip()
+                item['volume_24h'] = row.css('td:nth-child(10) span::text').get().strip()
+                item['market_cap'] = row.css('td:nth-child(11) span::text').get().strip()
 
-            market_time_str = datetime.datetime.strptime(market_time_raw, "%b %d, %Y %H:%M %Z")
-            market_time = market_time_str.strftime("%H:%M:%S")
+                yield item
 
-            base_currency, foreign_currency = self.extract_currencies(response.url)
-            print(base_currency,foreign_currency)
-            yield ExchangeRateItem(base_currency=base_currency, foreign_currency=foreign_currency, exchange_rate=exchange_rate, market_time=market_time)
-        else:
-            base_currency, foreign_currency = self.extract_currencies(response.url)
-            alt_start_url = f"https://valuta.exchange/{base_currency.upper()}-to-{foreign_currency.upper()}?"
-            yield scrapy.Request(alt_start_url, callback=self.parse_alt_link,
-                                  meta={'base_currency': base_currency, 'foreign_currency': foreign_currency}, dont_filter=True)
+            # yield scrapy.Request(self.alt_start_url, callback=self.parse_alt_link, dont_filter=True)
 
-    def extract_currencies(self, url):
-        parts = url.rstrip('/').split('/')
-        currency_part = parts[-1]
-        currencies = currency_part.split('-')
-
-        if len(currencies) == 2:
-            return currencies
-        else:
-            return None, None
-
-    def parse_alt_link(self, response): 
+    def parse_alt_link(self, response):
         if response.status == 200:
-            exchange_rate = response.css('div.UpdateTime__Container-sc-136xv3i-0.gMmDCR span.UpdateTime__ExchangeRate-sc-136xv3i-1.djCdnS::text').get()
-            market_time_raw = response.css('small.m-r-1::text').get()
-            pattern = r'at (\d{2}:\d{2})$'
-            match = re.search(pattern, market_time_raw)
-            market_time_str = match.group(1)  # Extract the time value
+            table = response.css('table tbody').get()
+            rows = scrapy.Selector(text=table).css('tbody tr')
+            # for row in rows:
+            #         tp = row.css('td:nth-child(10) span::text').get().strip()    
 
-            try:
-                # Parse the time string assuming HH:MM format
-                time_obj = datetime.datetime.strptime(market_time_str, "%H:%M")
-            except ValueError:
-                # Handle invalid time format
-                return None
-            
-            market_time = time_obj.strftime("%H:%M:%S")
+            results = []
+            # rows = response.css('table tbody tr')
+            for row in rows:
+                print(row.css('td:nth-child(3)::text').get().strip())
+                # item = CryptoItem()
+                # item['name'] = row.css('td:nth-child(3) div div:nth-child(1)::text').get().strip()
+                # item['code'] = row.css('td:nth-child(3) div div.tw-text-xs::text').get().strip()
 
-            base_currency, foreign_currency = self.extract_currencies(response.url)
-            yield ExchangeRateItem(base_currency=base_currency, foreign_currency=foreign_currency, exchange_rate=exchange_rate, market_time=market_time)
-        else:
-            base_currency = response.meta['base_currency']
-            foreign_currency = response.meta['foreign_currency']
-            alt_start_url = f"https://www.xe.com/currencyconverter/convert/?Amount=1&From={base_currency.upper()}&To={foreign_currency.upper()}"
-            yield scrapy.Request(alt_start_url, callback=self.parse_xe_link,
-                                  meta={'base_currency': base_currency, 'foreign_currency': foreign_currency}, dont_filter=True)
-            
-    def parse_xe_link(self, response):
-        if response.status == 200:
-            mangea_rate = response.css('main.tab-box__ContentContainer-sc-28io75-3.joNDZm p.result__BigRate-sc-1bsijpp-1.dPdXSB::text').get()
-            faded_digits = response.css('main.tab-box__ContentContainer-sc-28io75-3.joNDZm p.result__BigRate-sc-1bsijpp-1.dPdXSB span.faded-digits::text').get()
-            market_time_raw = response.css('small.m-r-1::text').get()
-            pattern = r'at (\d{2}:\d{2})$'
-            match = re.search(pattern, market_time_raw)
-            market_time_str = match.group(1)  # Extract the time value
-
-            try:
-                # Parse the time string assuming HH:MM format
-                time_obj = datetime.datetime.strptime(market_time_str, "%H:%M")
-            except ValueError:
-                # Handle invalid time format
-                return None
-            
-            market_time = time_obj.strftime("%H:%M:%S")
-                        
-            if mangea_rate and faded_digits:
-                exchange_rate = mangea_rate + faded_digits
-                base_currency, foreign_currency = self.extract_currencies(response.url)
-                yield ExchangeRateItem(base_currency=base_currency, foreign_currency=foreign_currency, exchange_rate=exchange_rate, market_time=market_time)
+                # yield item

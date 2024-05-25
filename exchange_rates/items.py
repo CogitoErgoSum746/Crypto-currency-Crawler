@@ -1,9 +1,11 @@
-# items.py
+# exchange_rates/items.py
 
 import scrapy
 
-class ExchangeRateItem(scrapy.Item):
-    base_currency = scrapy.Field()
-    foreign_currency = scrapy.Field()
-    exchange_rate = scrapy.Field()
-    market_time = scrapy.Field()
+class CryptoItem(scrapy.Item):
+    rank = scrapy.Field()
+    name = scrapy.Field()
+    code = scrapy.Field()
+    price = scrapy.Field()
+    volume_24h = scrapy.Field()
+    market_cap = scrapy.Field()

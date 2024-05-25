@@ -79,7 +79,7 @@ DOWNLOADER_MIDDLEWARES = {
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-   "exchange_rates.pipelines.ExchangeRatesPipeline": 300,
+   "exchange_rates.pipelines.CryptoPipeline": 300,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
