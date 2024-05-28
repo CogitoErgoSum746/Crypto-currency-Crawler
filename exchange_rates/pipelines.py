@@ -24,14 +24,14 @@ class CryptoPipeline:
         # Extract values from the item
         code = item['code']
         name = item['name']
-        price = item['price']
-        volume_24h = item['volume_24h']
-        market_cap = item['market_cap']
+        symbol = item['symbol']
+        volume_24h = item['volume_24h'][1:]
+        market_cap = item['market_cap'][1:]
         ranking = item['rank']
 
         # Check if the record exists
         self.db_cursor.execute("""
-            SELECT id FROM crypto_currency_exchange_rates
+            SELECT id FROM crypto_currency_list
             WHERE code = %s
         """, (code,))
         result = self.db_cursor.fetchone()
@@ -39,16 +39,16 @@ class CryptoPipeline:
         if result:
             # Update the existing record
             self.db_cursor.execute("""
-                UPDATE crypto_currency_exchange_rates
-                SET name = %s, price = %s, 24hr_volume = %s, market_capitalization = %s, ranking = %s, updated_at = %s
+                UPDATE crypto_currency_list
+                SET name = %s, symbol = %s, 24hr_volume = %s, market_capitalization = %s, ranking = %s, updated_at = %s
                 WHERE id = %s
-            """, (name, price, volume_24h, market_cap, ranking, now, result[0]))
+            """, (name, symbol, volume_24h, market_cap, ranking, now, result[0]))
         else:
             # Insert a new record
             self.db_cursor.execute("""
-                INSERT INTO crypto_currency_exchange_rates (code, name, price, 24hr_volume, market_capitalization, ranking, created_at, updated_at)
+                INSERT INTO crypto_currency_list (code, name, symbol, 24hr_volume, market_capitalization, ranking, created_at, updated_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (code, name, price, volume_24h, market_cap, ranking, now, now))
+            """, (code, name, symbol, volume_24h, market_cap, ranking, now, now))
         
         self.db_connection.commit()
         return item

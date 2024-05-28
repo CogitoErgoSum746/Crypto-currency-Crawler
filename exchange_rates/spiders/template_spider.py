@@ -40,7 +40,7 @@ class TemplateSpider(scrapy.Spider):
                 item['rank'] = row.css('td:nth-child(2)::text').get().strip()
                 item['name'] = row.css('td:nth-child(3) div div:nth-child(1)::text').get().strip()
                 item['code'] = row.css('td:nth-child(3) div div.tw-text-xs::text').get().strip()
-                item['price'] = row.css('td:nth-child(5) span::text').get().strip()
+                item['symbol'] = row.css('td:nth-child(3) img::attr(src)').get().strip()
                 item['volume_24h'] = row.css('td:nth-child(10) span::text').get().strip()
                 item['market_cap'] = row.css('td:nth-child(11) span::text').get().strip()
 
